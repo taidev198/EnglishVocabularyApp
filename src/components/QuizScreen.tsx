@@ -1,78 +1,114 @@
 import { ArrowLeft, Volume2, CheckCircle2, XCircle } from 'lucide-react';
 import { Button } from './ui/button';
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Progress } from './ui/progress';
+import { useVocabulary } from '../hooks/useVocabulary';
+import { toast } from 'sonner';
 
 interface QuizScreenProps {
   onNavigate: (screen: string) => void;
 }
 
-const quizQuestions = [
-  {
-    id: 1,
-    audio: "I ___ ___ ___ my neighbors.",
-    correctAnswer: "get along with",
-    words: ["get", "with", "along", "about"],
-    fullSentence: "I get along with my neighbors.",
-  },
-  {
-    id: 2,
-    audio: "We're ___ ___ ___ the concert.",
-    correctAnswer: "looking forward to",
-    words: ["to", "looking", "at", "forward"],
-    fullSentence: "We're looking forward to the concert.",
-  },
-  {
-    id: 3,
-    audio: "Can you ___ ___ ___ a solution?",
-    correctAnswer: "come up with",
-    words: ["come", "with", "down", "up"],
-    fullSentence: "Can you come up with a solution?",
-  },
-];
-
 export function QuizScreen({ onNavigate }: QuizScreenProps) {
-  const [currentQuestion, setCurrentQuestion] = useState(0);
-  const [selectedWords, setSelectedWords] = useState<string[]>([]);
-  const [availableWords, setAvailableWords] = useState<string[]>(
-    quizQuestions[0].words
-  );
+  const {
+    currentQuiz,
+    loading,
+    generateQuiz,
+    submitQuizAnswer,
+  } = useVocabulary();
+
+  const [currentQuestionIndex, setCurrentQuestionIndex] = useState(0);
+  const [selectedAnswerIndex, setSelectedAnswerIndex] = useState<number | null>(null);
   const [showFeedback, setShowFeedback] = useState(false);
   const [isCorrect, setIsCorrect] = useState(false);
+  const [timeSpent, setTimeSpent] = useState(0);
+  const [startTime, setStartTime] = useState<number | null>(null);
+  const [score, setScore] = useState({ correct: 0, total: 0 });
 
-  const question = quizQuestions[currentQuestion];
-  const progress = ((currentQuestion + 1) / quizQuestions.length) * 100;
+  // Generate quiz on mount
+  useEffect(() => {
+    generateQuiz(undefined, 10, 'MEDIUM');
+  }, [generateQuiz]);
 
-  const handleWordClick = (word: string, fromAvailable: boolean) => {
-    if (showFeedback) return;
-
-    if (fromAvailable) {
-      setSelectedWords([...selectedWords, word]);
-      setAvailableWords(availableWords.filter((w) => w !== word));
-    } else {
-      setAvailableWords([...availableWords, word]);
-      setSelectedWords(selectedWords.filter((w) => w !== word));
+  // Start timer when question is displayed
+  useEffect(() => {
+    if (currentQuiz && !showFeedback) {
+      setStartTime(Date.now());
+      setTimeSpent(0);
+      const interval = setInterval(() => {
+        setTimeSpent(prev => prev + 1);
+      }, 1000);
+      return () => clearInterval(interval);
     }
+  }, [currentQuestionIndex, currentQuiz, showFeedback]);
+
+  const currentQuestion = currentQuiz?.questions[currentQuestionIndex];
+  const progress = currentQuiz ? ((currentQuestionIndex + 1) / currentQuiz.totalQuestions) * 100 : 0;
+
+  const handleAnswerSelect = (index: number) => {
+    if (showFeedback) return;
+    setSelectedAnswerIndex(index);
   };
 
-  const handleSubmit = () => {
-    const userAnswer = selectedWords.join(' ');
-    const correct = userAnswer === question.correctAnswer;
+  const handleSubmit = async () => {
+    if (selectedAnswerIndex === null || !currentQuestion) return;
+
+    const timeSpentSeconds = startTime ? Math.floor((Date.now() - startTime) / 1000) : timeSpent;
+    const correct = await submitQuizAnswer(
+      currentQuestion.wordId,
+      selectedAnswerIndex,
+      currentQuestion.correctAnswerIndex,
+      timeSpentSeconds
+    );
+
     setIsCorrect(correct);
     setShowFeedback(true);
+    setScore(prev => ({
+      correct: prev.correct + (correct ? 1 : 0),
+      total: prev.total + 1,
+    }));
+
+    if (correct) {
+      toast.success('Correct! 🎉');
+    } else {
+      toast.error(`Incorrect. The correct answer is: ${currentQuestion.options[currentQuestion.correctAnswerIndex]}`);
+    }
   };
 
   const handleNext = () => {
-    if (currentQuestion < quizQuestions.length - 1) {
-      const nextQuestion = currentQuestion + 1;
-      setCurrentQuestion(nextQuestion);
-      setSelectedWords([]);
-      setAvailableWords(quizQuestions[nextQuestion].words);
+    if (currentQuiz && currentQuestionIndex < currentQuiz.questions.length - 1) {
+      setCurrentQuestionIndex(currentQuestionIndex + 1);
+      setSelectedAnswerIndex(null);
       setShowFeedback(false);
+      setIsCorrect(false);
     } else {
+      // Quiz completed
+      toast.success(`Quiz completed! Score: ${score.correct}/${score.total}`);
       onNavigate('home');
     }
   };
+
+  if (loading && !currentQuiz) {
+    return (
+      <div className="min-h-screen bg-gradient-to-b from-cyan-50 via-blue-50 to-purple-50 flex items-center justify-center">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-500 mx-auto mb-4"></div>
+          <p className="text-gray-600">Loading quiz...</p>
+        </div>
+      </div>
+    );
+  }
+
+  if (!currentQuiz || !currentQuestion) {
+    return (
+      <div className="min-h-screen bg-gradient-to-b from-cyan-50 via-blue-50 to-purple-50 flex items-center justify-center">
+        <div className="text-center">
+          <p className="text-gray-600 mb-4">No quiz available</p>
+          <Button onClick={() => onNavigate('home')}>Go Back</Button>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-gradient-to-b from-cyan-50 via-blue-50 to-purple-50">
@@ -88,57 +124,61 @@ export function QuizScreen({ onNavigate }: QuizScreenProps) {
           <div className="flex-1 mx-4">
             <Progress value={progress} className="h-2" />
           </div>
-          <span className="text-gray-600">{currentQuestion + 1}/{quizQuestions.length}</span>
+          <span className="text-gray-600">{currentQuestionIndex + 1}/{currentQuiz.totalQuestions}</span>
         </div>
 
         {/* Main Content */}
         <div className="flex flex-col min-h-[70vh]">
-          <h2 className="text-gray-800 text-center mb-8">Fill in the blank</h2>
+          <h2 className="text-gray-800 text-center mb-8">What does this word mean?</h2>
 
-          {/* Audio Section */}
+          {/* Word Section */}
           <div className="bg-white/80 backdrop-blur rounded-3xl p-6 shadow-lg mb-8">
             <div className="flex items-center justify-center gap-3 mb-4">
-              <button className="w-12 h-12 rounded-full bg-gradient-to-br from-blue-500 to-cyan-500 flex items-center justify-center hover:scale-110 transition-transform">
-                <Volume2 className="w-6 h-6 text-white" />
-              </button>
-              <p className="text-gray-600">Listen to the sentence</p>
-            </div>
-            <p className="text-gray-800 text-center">{question.audio}</p>
-          </div>
-
-          {/* Answer Area */}
-          <div className="bg-white/80 backdrop-blur rounded-3xl p-6 shadow-lg mb-6 min-h-[80px]">
-            <p className="text-gray-500 mb-3">Your answer:</p>
-            <div className="flex flex-wrap gap-2 min-h-[40px]">
-              {selectedWords.length === 0 ? (
-                <p className="text-gray-400">Tap words below to build your answer</p>
-              ) : (
-                selectedWords.map((word, index) => (
-                  <button
-                    key={`${word}-${index}`}
-                    onClick={() => handleWordClick(word, false)}
-                    className="px-4 py-2 bg-gradient-to-r from-blue-500 to-cyan-500 text-white rounded-full hover:scale-105 transition-transform"
-                  >
-                    {word}
-                  </button>
-                ))
-              )}
-            </div>
-          </div>
-
-          {/* Word Tiles */}
-          <div className="bg-white/80 backdrop-blur rounded-3xl p-6 shadow-lg mb-6">
-            <div className="flex flex-wrap gap-2 justify-center">
-              {availableWords.map((word, index) => (
-                <button
-                  key={`${word}-${index}`}
-                  onClick={() => handleWordClick(word, true)}
-                  className="px-4 py-2 bg-gray-200 text-gray-800 rounded-full hover:bg-gray-300 transition-colors"
-                >
-                  {word}
+              {currentQuestion.word.audioUrl && (
+                <button className="w-12 h-12 rounded-full bg-gradient-to-br from-blue-500 to-cyan-500 flex items-center justify-center hover:scale-110 transition-transform">
+                  <Volume2 className="w-6 h-6 text-white" />
                 </button>
-              ))}
+              )}
+              <p className="text-gray-600">Listen to pronunciation</p>
             </div>
+            <h3 className="text-3xl font-bold text-gray-800 text-center mb-2">
+              {currentQuestion.question}
+            </h3>
+            {currentQuestion.word.pronunciation && (
+              <p className="text-gray-500 text-center text-sm">
+                {currentQuestion.word.pronunciation}
+              </p>
+            )}
+          </div>
+
+          {/* Answer Options */}
+          <div className="space-y-3 mb-6">
+            {currentQuestion.options.map((option, index) => (
+              <button
+                key={index}
+                onClick={() => handleAnswerSelect(index)}
+                disabled={showFeedback}
+                className={`w-full p-4 rounded-2xl text-left transition-all ${
+                  selectedAnswerIndex === index
+                    ? 'bg-gradient-to-r from-blue-500 to-cyan-500 text-white shadow-lg scale-105'
+                    : showFeedback && index === currentQuestion.correctAnswerIndex
+                    ? 'bg-gradient-to-r from-green-400 to-emerald-400 text-white shadow-lg'
+                    : showFeedback && selectedAnswerIndex === index && !isCorrect
+                    ? 'bg-gradient-to-r from-red-400 to-orange-400 text-white shadow-lg'
+                    : 'bg-white/80 backdrop-blur text-gray-800 hover:bg-white/90 shadow-md'
+                }`}
+              >
+                <div className="flex items-center justify-between">
+                  <span className="font-medium">{option}</span>
+                  {showFeedback && index === currentQuestion.correctAnswerIndex && (
+                    <CheckCircle2 className="w-5 h-5" />
+                  )}
+                  {showFeedback && selectedAnswerIndex === index && !isCorrect && index !== currentQuestion.correctAnswerIndex && (
+                    <XCircle className="w-5 h-5" />
+                  )}
+                </div>
+              </button>
+            ))}
           </div>
 
           {/* Feedback */}
@@ -160,9 +200,9 @@ export function QuizScreen({ onNavigate }: QuizScreenProps) {
                   <p className="font-semibold">
                     {isCorrect ? 'Great! You got it right!' : 'Not quite right'}
                   </p>
-                  {!isCorrect && (
-                    <p className="text-white/90">
-                      Correct answer: {question.correctAnswer}
+                  {currentQuestion.word.exampleSentence && (
+                    <p className="text-white/90 text-sm mt-1">
+                      Example: {currentQuestion.word.exampleSentence}
                     </p>
                   )}
                 </div>
@@ -175,7 +215,7 @@ export function QuizScreen({ onNavigate }: QuizScreenProps) {
             {!showFeedback ? (
               <Button
                 onClick={handleSubmit}
-                disabled={selectedWords.length === 0}
+                disabled={selectedAnswerIndex === null}
                 className="w-full py-6 bg-gradient-to-r from-blue-500 to-cyan-500 hover:from-blue-600 hover:to-cyan-600 disabled:opacity-50"
               >
                 Check Answer
@@ -185,7 +225,7 @@ export function QuizScreen({ onNavigate }: QuizScreenProps) {
                 onClick={handleNext}
                 className="w-full py-6 bg-gradient-to-r from-purple-500 to-pink-500 hover:from-purple-600 hover:to-pink-600"
               >
-                {currentQuestion < quizQuestions.length - 1 ? 'Next Question' : 'Complete Quiz'}
+                {currentQuestionIndex < currentQuiz.questions.length - 1 ? 'Next Question' : 'Complete Quiz'}
               </Button>
             )}
           </div>
