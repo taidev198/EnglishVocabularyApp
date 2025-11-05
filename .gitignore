@@ -43,3 +43,4 @@ workbox-*.js.map
 # TypeScript
 *.tsbuildinfo
 
+.github/workflows/deploy.yml
