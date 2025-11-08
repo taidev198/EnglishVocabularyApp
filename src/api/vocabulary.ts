@@ -14,6 +14,7 @@ import {
   WordLevel,
   WordCategory,
   LearningStatus,
+  ShadowingResponse,
 } from './types';
 
 // Word Management API
@@ -188,6 +189,161 @@ export const quizApi = {
       method: 'POST',
       body: JSON.stringify(request),
     });
+  },
+};
+
+// Shadowing API
+export const shadowingApi = {
+  // Perform shadowing practice
+  performShadowing: async (
+    audioFile: File,
+    expectedText: string,
+    language: string = 'en',
+    wordTimestamps: boolean = true
+  ): Promise<ApiResponse<ShadowingResponse>> => {
+    const formData = new FormData();
+    formData.append('audioFile', audioFile);
+    formData.append('expectedText', expectedText);
+    
+    const url = `${API_CONFIG.vocabulary.shadowing}?language=${language}&wordTimestamps=${wordTimestamps}`;
+    
+    // Override default headers for multipart/form-data
+    const response = await fetch(url, {
+      method: 'POST',
+      body: formData,
+      headers: {
+        // Don't set Content-Type, let browser set it with boundary
+        'Accept': 'application/json',
+      },
+    });
+
+    if (!response.ok) {
+      const error = await response.json().catch(() => ({ message: response.statusText }));
+      throw new Error(error.message || `HTTP error! status: ${response.status}`);
+    }
+
+    return response.json();
+  },
+
+  // Compare texts without audio
+  compareTexts: async (
+    transcribedText: string,
+    expectedText: string
+  ): Promise<ApiResponse<ShadowingResponse>> => {
+    const url = `${API_CONFIG.vocabulary.shadowing}/compare?transcribedText=${encodeURIComponent(transcribedText)}&expectedText=${encodeURIComponent(expectedText)}`;
+    return apiRequest<ApiResponse<ShadowingResponse>>(url, {
+      method: 'POST',
+    });
+  },
+};
+
+// Whisper API for audio analysis - calls Python backend directly
+export const whisperApi = {
+  // Analyze audio for waveform and pitch visualization
+  analyzeAudio: async (
+    audioFile: File
+  ): Promise<{ waveform: number[]; pitch: number[] }> => {
+    const formData = new FormData();
+    formData.append('file', audioFile);
+    
+    const url = API_CONFIG.whisper.analyzeAudio;
+    
+    console.log('Calling Whisper API for audio analysis:', url);
+    
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 30000); // 30 seconds timeout for audio analysis
+    
+    try {
+      const response = await fetch(url, {
+        method: 'POST',
+        body: formData,
+        headers: {
+          'Accept': 'application/json',
+          // Don't set Content-Type, let browser set it with boundary for multipart/form-data
+        },
+        signal: controller.signal,
+      });
+
+      clearTimeout(timeoutId);
+
+      if (!response.ok) {
+        const error = await response.json().catch(() => ({ detail: response.statusText }));
+        throw new Error(error.detail || `HTTP error! status: ${response.status}`);
+      }
+
+      const result = await response.json();
+      console.log('Whisper API response received:', { 
+        waveformLength: result.waveform?.length || 0,
+        pitchLength: result.pitch?.length || 0 
+      });
+      
+      return result;
+    } catch (error) {
+      clearTimeout(timeoutId);
+      if (error instanceof Error && error.name === 'AbortError') {
+        throw new Error('Audio analysis request timeout. The audio file may be too large.');
+      }
+      if (error instanceof Error && error.message.includes('Failed to fetch')) {
+        throw new Error(`Failed to connect to Whisper API at ${url}. Please ensure the Whisper API server is running.`);
+      }
+      throw error;
+    }
+  },
+
+  // Perform forced alignment analysis for phoneme-level feedback
+  forcedAlignment: async (
+    audioFile: File,
+    referenceText: string,
+    modelName: string = 'base.en'
+  ): Promise<import('./types').ForcedAlignmentResponse> => {
+    const formData = new FormData();
+    formData.append('file', audioFile);
+    formData.append('reference_text', referenceText);
+    formData.append('model_name', modelName);
+    
+    const url = API_CONFIG.whisper.forcedAlignment;
+    
+    console.log('Calling Whisper API for forced alignment:', url);
+    
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 60000); // 60 seconds timeout for forced alignment
+    
+    try {
+      const response = await fetch(url, {
+        method: 'POST',
+        body: formData,
+        headers: {
+          'Accept': 'application/json',
+          // Don't set Content-Type, let browser set it with boundary for multipart/form-data
+        },
+        signal: controller.signal,
+      });
+
+      clearTimeout(timeoutId);
+
+      if (!response.ok) {
+        const error = await response.json().catch(() => ({ detail: response.statusText }));
+        throw new Error(error.detail || `HTTP error! status: ${response.status}`);
+      }
+
+      const result = await response.json();
+      console.log('Forced alignment response received:', { 
+        phonemeCount: result?.phonemes?.length || 0,
+        wordCount: result?.words?.length || 0,
+        success: result?.success
+      });
+      
+      return result;
+    } catch (error) {
+      clearTimeout(timeoutId);
+      if (error instanceof Error && error.name === 'AbortError') {
+        throw new Error('Forced alignment request timeout. The audio file may be too large.');
+      }
+      if (error instanceof Error && error.message.includes('Failed to fetch')) {
+        throw new Error(`Failed to connect to Whisper API at ${url}. Please ensure the Whisper API server is running.`);
+      }
+      throw error;
+    }
   },
 };
 

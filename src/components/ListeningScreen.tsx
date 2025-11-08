@@ -1,8 +1,10 @@
 import { useState, useEffect, useRef } from 'react';
-import { Play, Pause, SkipBack, SkipForward, Volume2, VolumeX, X } from 'lucide-react';
+import { Play, Pause, SkipBack, SkipForward, Volume2, VolumeX, X, Loader2 } from 'lucide-react';
 import { Button } from './ui/button';
 import { Card } from './ui/card';
 import { Progress } from './ui/progress';
+import { wordApi } from '../api/vocabulary';
+import { Word } from '../api/types';
 
 interface ListeningScreenProps {
   onNavigate: (screen: string) => void;
@@ -16,136 +18,21 @@ interface Chunk {
   meaning: string; // Vietnamese meaning
 }
 
-// Sample chunks - you can expand this to 200 chunks
-const chunks: Chunk[] = [
-  {
-    id: 1,
-    chunk: "get along with",
-    definition: "có quan hệ tốt với ai đó",
-    example: "I get along with my coworkers really well.",
-    meaning: "Tôi có quan hệ rất tốt với đồng nghiệp của tôi."
-  },
-  {
-    id: 2,
-    chunk: "look forward to",
-    definition: "mong chờ, mong đợi",
-    example: "I'm looking forward to the weekend.",
-    meaning: "Tôi đang mong chờ cuối tuần."
-  },
-  {
-    id: 3,
-    chunk: "come up with",
-    definition: "nghĩ ra, đưa ra ý tưởng",
-    example: "Can you come up with a better solution?",
-    meaning: "Bạn có thể nghĩ ra giải pháp tốt hơn không?"
-  },
-  {
-    id: 4,
-    chunk: "put off",
-    definition: "hoãn lại, trì hoãn",
-    example: "Don't put off until tomorrow what you can do today.",
-    meaning: "Đừng hoãn đến ngày mai những gì bạn có thể làm hôm nay."
-  },
-  {
-    id: 5,
-    chunk: "break the ice",
-    definition: "phá vỡ sự im lặng, bắt đầu cuộc trò chuyện",
-    example: "He told a joke to break the ice at the meeting.",
-    meaning: "Anh ấy kể một câu chuyện cười để phá vỡ sự im lặng trong cuộc họp."
-  },
-  {
-    id: 6,
-    chunk: "piece of cake",
-    definition: "dễ như ăn bánh, rất dễ dàng",
-    example: "The exam was a piece of cake.",
-    meaning: "Bài thi dễ như ăn bánh."
-  },
-  {
-    id: 7,
-    chunk: "call it a day",
-    definition: "kết thúc công việc trong ngày",
-    example: "It's getting late. Let's call it a day.",
-    meaning: "Đã muộn rồi. Hãy kết thúc công việc hôm nay thôi."
-  },
-  {
-    id: 8,
-    chunk: "hit the nail on the head",
-    definition: "nói đúng, chính xác",
-    example: "You hit the nail on the head with that comment.",
-    meaning: "Bạn đã nói đúng với nhận xét đó."
-  },
-  {
-    id: 9,
-    chunk: "once in a blue moon",
-    definition: "rất hiếm khi",
-    example: "I only see him once in a blue moon.",
-    meaning: "Tôi chỉ thấy anh ấy rất hiếm khi."
-  },
-  {
-    id: 10,
-    chunk: "the ball is in your court",
-    definition: "đến lượt bạn quyết định",
-    example: "I've made my offer. The ball is in your court now.",
-    meaning: "Tôi đã đưa ra đề nghị. Bây giờ đến lượt bạn quyết định."
-  }
-];
-
-// Expanded chunks list - you can add more to reach 200
-const additionalChunks: Chunk[] = [
-  { id: 11, chunk: "take care of", definition: "chăm sóc", example: "I take care of my plants every day.", meaning: "Tôi chăm sóc cây cối mỗi ngày." },
-  { id: 12, chunk: "get rid of", definition: "loại bỏ", example: "I need to get rid of old clothes.", meaning: "Tôi cần loại bỏ quần áo cũ." },
-  { id: 13, chunk: "look after", definition: "chăm sóc, trông nom", example: "Can you look after my dog?", meaning: "Bạn có thể trông nom con chó của tôi không?" },
-  { id: 14, chunk: "turn down", definition: "từ chối", example: "I had to turn down the job offer.", meaning: "Tôi phải từ chối lời mời làm việc." },
-  { id: 15, chunk: "find out", definition: "tìm ra, khám phá", example: "I need to find out what happened.", meaning: "Tôi cần tìm ra điều gì đã xảy ra." },
-  { id: 16, chunk: "give up", definition: "từ bỏ", example: "Don't give up on your dreams.", meaning: "Đừng từ bỏ ước mơ của bạn." },
-  { id: 17, chunk: "go through", definition: "trải qua", example: "We're going through a difficult time.", meaning: "Chúng tôi đang trải qua thời kỳ khó khăn." },
-  { id: 18, chunk: "look up", definition: "tra cứu", example: "I'll look up the word in the dictionary.", meaning: "Tôi sẽ tra cứu từ này trong từ điển." },
-  { id: 19, chunk: "make up", definition: "bịa đặt, tạo ra", example: "Don't make up excuses.", meaning: "Đừng bịa đặt lý do." },
-  { id: 20, chunk: "pick up", definition: "đón, nhặt", example: "I'll pick you up at 8 AM.", meaning: "Tôi sẽ đón bạn lúc 8 giờ sáng." },
-  { id: 21, chunk: "run out of", definition: "hết, cạn kiệt", example: "We've run out of milk.", meaning: "Chúng tôi đã hết sữa." },
-  { id: 22, chunk: "turn on", definition: "bật lên", example: "Please turn on the lights.", meaning: "Làm ơn bật đèn lên." },
-  { id: 23, chunk: "turn off", definition: "tắt đi", example: "Don't forget to turn off the TV.", meaning: "Đừng quên tắt TV." },
-  { id: 24, chunk: "look for", definition: "tìm kiếm", example: "I'm looking for my keys.", meaning: "Tôi đang tìm chìa khóa của tôi." },
-  { id: 25, chunk: "take off", definition: "cất cánh, cởi ra", example: "The plane will take off soon.", meaning: "Máy bay sẽ cất cánh sớm." }
-];
-
-// Generate more chunks to reach ~200 (you can replace with real data)
-const generateChunks = (): Chunk[] => {
-  const allBaseChunks = [...chunks, ...additionalChunks];
-  const generatedChunks: Chunk[] = [];
-  
-  const commonChunks = [
-    { chunk: "run into", def: "gặp phải", ex: "I ran into an old friend.", mean: "Tôi gặp một người bạn cũ." },
-    { chunk: "set up", def: "thiết lập", ex: "Let me set up the meeting.", mean: "Để tôi thiết lập cuộc họp." },
-    { chunk: "show up", def: "xuất hiện, đến", ex: "He didn't show up at the party.", mean: "Anh ấy không đến bữa tiệc." },
-    { chunk: "turn up", def: "xuất hiện, tăng âm lượng", ex: "Can you turn up the volume?", mean: "Bạn có thể tăng âm lượng không?" },
-    { chunk: "work out", def: "tập thể dục, giải quyết", ex: "I work out three times a week.", mean: "Tôi tập thể dục ba lần một tuần." },
-    { chunk: "figure out", def: "tìm ra, hiểu ra", ex: "I need to figure out the problem.", mean: "Tôi cần tìm ra vấn đề." },
-    { chunk: "point out", def: "chỉ ra", ex: "He pointed out my mistake.", mean: "Anh ấy chỉ ra lỗi của tôi." },
-    { chunk: "bring up", def: "nuôi dưỡng, đề cập", ex: "Don't bring up that topic.", mean: "Đừng đề cập chủ đề đó." },
-    { chunk: "carry out", def: "thực hiện", ex: "We need to carry out the plan.", mean: "Chúng tôi cần thực hiện kế hoạch." },
-    { chunk: "catch up", def: "bắt kịp", ex: "I need to catch up on my work.", mean: "Tôi cần bắt kịp công việc của tôi." }
-  ];
-
-  for (let i = 0; i < 165; i++) {
-    const template = commonChunks[i % commonChunks.length];
-    generatedChunks.push({
-      id: allBaseChunks.length + i + 1,
-      chunk: template.chunk,
-      definition: template.def,
-      example: template.ex,
-      meaning: template.mean
-    });
-  }
-
-  return [...allBaseChunks, ...generatedChunks];
-};
-
-const allChunks = generateChunks();
+// Transform Word to Chunk
+const wordToChunk = (word: Word): Chunk => ({
+  id: word.id,
+  chunk: word.englishWord,
+  definition: word.meaning || '',
+  example: word.exampleSentence || '',
+  meaning: word.translation || '',
+});
 
 type PlaybackStep = 'chunk' | 'definition' | 'example' | 'meaning';
 
 export function ListeningScreen({ onNavigate }: ListeningScreenProps) {
+  const [allChunks, setAllChunks] = useState<Chunk[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
   const [currentIndex, setCurrentIndex] = useState(0);
   const [isPlaying, setIsPlaying] = useState(false);
   const [isPaused, setIsPaused] = useState(false);
@@ -154,18 +41,98 @@ export function ListeningScreen({ onNavigate }: ListeningScreenProps) {
   const [isMuted, setIsMuted] = useState(false);
   const synthRef = useRef<SpeechSynthesis | null>(null);
   const utteranceRef = useRef<SpeechSynthesisUtterance | null>(null);
+  const currentIndexRef = useRef(0);
+  const isPlayingRef = useRef(false);
+  const timeoutRef = useRef<NodeJS.Timeout | null>(null);
+
+  // Fetch words from backend
+  useEffect(() => {
+    const fetchWords = async () => {
+      try {
+        setLoading(true);
+        setError(null);
+        
+        // Fetch multiple pages to get 200 words (or as many as available)
+        const targetCount = 200;
+        const pageSize = 50;
+        let allWords: Word[] = [];
+        let page = 0;
+        let hasMore = true;
+
+        while (hasMore && allWords.length < targetCount) {
+          try {
+            console.log(`Fetching page ${page} with size ${pageSize}...`);
+            const response = await wordApi.getAllWords(page, pageSize, 'id', 'ASC');
+            console.log(`Page ${page} response:`, response);
+            
+            if (response.success && response.data) {
+              const words = response.data.content || [];
+              allWords = [...allWords, ...words];
+              
+              // Check if there are more pages
+              hasMore = !response.data.last && words.length > 0;
+              page++;
+              
+              // Stop if we've reached the target count
+              if (allWords.length >= targetCount) {
+                break;
+              }
+            } else {
+              console.warn('API response not successful:', response);
+              hasMore = false;
+            }
+          } catch (pageError) {
+            console.error(`Error fetching page ${page}:`, pageError);
+            // Continue to next page or stop if it's the first page
+            if (page === 0) {
+              throw pageError; // Re-throw if first page fails
+            }
+            hasMore = false;
+          }
+        }
+
+        // Transform words to chunks and limit to 200
+        const chunks = allWords.slice(0, targetCount).map(wordToChunk);
+        setAllChunks(chunks);
+        // Reset ref when chunks are loaded
+        currentIndexRef.current = 0;
+      } catch (err) {
+        console.error('Error fetching words:', err);
+        console.error('Error details:', {
+          message: err instanceof Error ? err.message : String(err),
+          stack: err instanceof Error ? err.stack : undefined,
+        });
+        const errorMessage = err instanceof Error 
+          ? `${err.message}${err.message.includes('CORS') || err.message.includes('Failed to fetch') 
+              ? ' - Check if backend CORS is configured and server is running on port 8084' 
+              : ''}` 
+          : 'Failed to load words';
+        setError(errorMessage);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchWords();
+  }, []);
 
   const currentChunk = allChunks[currentIndex];
-  const progress = ((currentIndex + 1) / allChunks.length) * 100;
+  const progress = allChunks.length > 0 ? ((currentIndex + 1) / allChunks.length) * 100 : 0;
 
   useEffect(() => {
     synthRef.current = window.speechSynthesis;
+    // Sync ref with currentIndex when it changes
+    currentIndexRef.current = currentIndex;
     return () => {
       if (synthRef.current) {
         synthRef.current.cancel();
       }
+      if (timeoutRef.current) {
+        clearTimeout(timeoutRef.current);
+      }
+      isPlayingRef.current = false;
     };
-  }, []);
+  }, [currentIndex]);
 
   const speak = (text: string, lang: string = 'en-US', onEnd?: () => void) => {
     if (!synthRef.current) return;
@@ -196,31 +163,63 @@ export function ListeningScreen({ onNavigate }: ListeningScreenProps) {
   };
 
   const playCurrentChunk = () => {
-    if (!currentChunk) return;
+    // Check if playback was manually stopped
+    if (!isPlayingRef.current) {
+      return;
+    }
+
+    // Use ref to get the latest index value (avoids stale closure)
+    const index = currentIndexRef.current;
+    const chunk = allChunks[index];
+    
+    if (!chunk) {
+      setIsPlaying(false);
+      isPlayingRef.current = false;
+      return;
+    }
 
     setIsPlaying(true);
+    isPlayingRef.current = true;
     setIsPaused(false);
     setCurrentStep('chunk');
 
     // Step 1: Play chunk (English)
-    speak(currentChunk.chunk, 'en-US', () => {
+    speak(chunk.chunk, 'en-US', () => {
+      // Check if playback was manually stopped during callback
+      if (!isPlayingRef.current) return;
+
       // Step 2: Play definition (Vietnamese)
       setCurrentStep('definition');
-      speak(currentChunk.definition, 'vi-VN', () => {
+      speak(chunk.definition, 'vi-VN', () => {
+        if (!isPlayingRef.current) return;
+
         // Step 3: Play example (English)
         setCurrentStep('example');
-        speak(currentChunk.example, 'en-US', () => {
+        speak(chunk.example, 'en-US', () => {
+          if (!isPlayingRef.current) return;
+
           // Step 4: Play meaning (Vietnamese)
           setCurrentStep('meaning');
-          speak(currentChunk.meaning, 'vi-VN', () => {
+          speak(chunk.meaning, 'vi-VN', () => {
+            if (!isPlayingRef.current) return;
+
             // Move to next chunk
             setCurrentStep('chunk');
-            if (currentIndex < allChunks.length - 1) {
-              setCurrentIndex(currentIndex + 1);
+            
+            // Check if there are more chunks using ref (latest value)
+            const nextIndex = currentIndexRef.current + 1;
+            if (nextIndex < allChunks.length && isPlayingRef.current) {
+              currentIndexRef.current = nextIndex;
+              setCurrentIndex(nextIndex);
               // Auto-play next chunk
-              setTimeout(() => playCurrentChunk(), 1000);
+              timeoutRef.current = setTimeout(() => {
+                if (isPlayingRef.current) {
+                  playCurrentChunk();
+                }
+              }, 1000);
             } else {
               setIsPlaying(false);
+              isPlayingRef.current = false;
             }
           });
         });
@@ -235,12 +234,19 @@ export function ListeningScreen({ onNavigate }: ListeningScreenProps) {
       // Pause
       synthRef.current.pause();
       setIsPaused(true);
+      isPlayingRef.current = false; // Prevent auto-play continuation
+      if (timeoutRef.current) {
+        clearTimeout(timeoutRef.current);
+        timeoutRef.current = null;
+      }
     } else if (isPaused) {
       // Resume
+      isPlayingRef.current = true;
       synthRef.current.resume();
       setIsPaused(false);
     } else {
       // Start playing
+      isPlayingRef.current = true;
       playCurrentChunk();
     }
   };
@@ -249,31 +255,58 @@ export function ListeningScreen({ onNavigate }: ListeningScreenProps) {
     if (synthRef.current) {
       synthRef.current.cancel();
     }
+    // Clear any pending timeouts
+    if (timeoutRef.current) {
+      clearTimeout(timeoutRef.current);
+      timeoutRef.current = null;
+    }
     setIsPlaying(false);
+    isPlayingRef.current = false; // Prevent auto-play continuation
     setIsPaused(false);
     setCurrentStep('chunk');
+    // Sync ref with current state
+    currentIndexRef.current = currentIndex;
   };
 
   const handlePrevious = () => {
     handleStop();
-    if (currentIndex > 0) {
-      setCurrentIndex(currentIndex - 1);
-    }
+    // Wait a bit to ensure all callbacks are cancelled, then use ref for latest value
+    setTimeout(() => {
+      const currentIdx = currentIndexRef.current;
+      if (currentIdx > 0) {
+        const newIndex = currentIdx - 1;
+        currentIndexRef.current = newIndex;
+        setCurrentIndex(newIndex);
+      }
+    }, 100);
   };
 
   const handleNext = () => {
     handleStop();
-    if (currentIndex < allChunks.length - 1) {
-      setCurrentIndex(currentIndex + 1);
-    }
+    // Wait a bit to ensure all callbacks are cancelled, then use ref for latest value
+    setTimeout(() => {
+      const currentIdx = currentIndexRef.current;
+      if (currentIdx < allChunks.length - 1) {
+        const newIndex = currentIdx + 1;
+        currentIndexRef.current = newIndex;
+        setCurrentIndex(newIndex);
+      }
+    }, 100);
   };
 
   const handleSkipToNextChunk = () => {
     handleStop();
-    if (currentIndex < allChunks.length - 1) {
-      setCurrentIndex(currentIndex + 1);
-      setTimeout(() => playCurrentChunk(), 500);
-    }
+    // Wait a bit to ensure all callbacks are cancelled, then use ref for latest value
+    setTimeout(() => {
+      const currentIdx = currentIndexRef.current;
+      if (currentIdx < allChunks.length - 1) {
+        const newIndex = currentIdx + 1;
+        currentIndexRef.current = newIndex;
+        setCurrentIndex(newIndex);
+        isPlayingRef.current = true;
+        setTimeout(() => playCurrentChunk(), 500);
+      }
+    }, 100);
   };
 
   const toggleMute = () => {
@@ -296,6 +329,42 @@ export function ListeningScreen({ onNavigate }: ListeningScreenProps) {
       default: return '';
     }
   };
+
+  // Loading state
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-gradient-to-b from-purple-50 via-pink-50 to-blue-50 flex items-center justify-center">
+        <div className="text-center">
+          <Loader2 className="w-8 h-8 animate-spin mx-auto mb-4 text-purple-500" />
+          <p className="text-gray-600">Loading words...</p>
+        </div>
+      </div>
+    );
+  }
+
+  // Error state
+  if (error) {
+    return (
+      <div className="min-h-screen bg-gradient-to-b from-purple-50 via-pink-50 to-blue-50 flex items-center justify-center">
+        <div className="text-center max-w-md mx-auto px-6">
+          <p className="text-red-600 mb-4">Error: {error}</p>
+          <Button onClick={() => window.location.reload()}>Retry</Button>
+        </div>
+      </div>
+    );
+  }
+
+  // No chunks state
+  if (allChunks.length === 0) {
+    return (
+      <div className="min-h-screen bg-gradient-to-b from-purple-50 via-pink-50 to-blue-50 flex items-center justify-center">
+        <div className="text-center max-w-md mx-auto px-6">
+          <p className="text-gray-600 mb-4">No words available.</p>
+          <Button onClick={() => onNavigate('home')}>Go Back</Button>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-gradient-to-b from-purple-50 via-pink-50 to-blue-50">
@@ -414,4 +483,3 @@ export function ListeningScreen({ onNavigate }: ListeningScreenProps) {
     </div>
   );
 }
-

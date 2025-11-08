@@ -8,6 +8,19 @@ import { QuizScreen } from './components/QuizScreen';
 import { AIExplanationScreen } from './components/AIExplanationScreen';
 import { ProgressScreen } from './components/ProgressScreen';
 import { ListeningScreen } from './components/ListeningScreen';
+import { TodaysChunksScreen } from './components/TodaysChunksScreen';
+import { ReviewScreen } from './components/ReviewScreen';
+import { ListenTypeScreen } from './components/games/ListenTypeScreen';
+import { FillInChunkScreen } from './components/games/FillInChunkScreen';
+import { ChunkBuilderScreen } from './components/games/ChunkBuilderScreen';
+import { MeaningMatchScreen } from './components/games/MeaningMatchScreen';
+import { TranslateBackScreen } from './components/games/TranslateBackScreen';
+import { ShadowChallengeScreen } from './components/games/ShadowChallengeScreen';
+import { ContextQuizScreen } from './components/games/ContextQuizScreen';
+import { QuickReviewFlashcardsScreen } from './components/games/QuickReviewFlashcardsScreen';
+import { TimeAttackScreen } from './components/games/TimeAttackScreen';
+import { StoryModeScreen } from './components/games/StoryModeScreen';
+import { AISentenceBuilderScreen } from './components/games/AISentenceBuilderScreen';
 import { BottomNav } from './components/BottomNav';
 
 type Screen = 
@@ -19,7 +32,20 @@ type Screen =
   | 'quiz' 
   | 'ai' 
   | 'progress'
-  | 'listening';
+  | 'listening'
+  | 'todays-chunks'
+  | 'review'
+  | 'listen-type'
+  | 'fill-in-chunk'
+  | 'chunk-builder'
+  | 'meaning-match'
+  | 'translate-back'
+  | 'shadow-challenge'
+  | 'context-quiz'
+  | 'quick-review'
+  | 'time-attack'
+  | 'story-mode'
+  | 'ai-sentence-builder';
 
 export default function App() {
   const [currentScreen, setCurrentScreen] = useState<Screen>('onboarding');
@@ -40,8 +66,8 @@ export default function App() {
     setCurrentScreen('home');
   };
 
-  const handleNavigate = (screen: Screen) => {
-    setCurrentScreen(screen);
+  const handleNavigate = (screen: Screen | string) => {
+    setCurrentScreen(screen as Screen);
   };
 
   const showBottomNav = hasCompletedOnboarding && 
@@ -49,7 +75,20 @@ export default function App() {
     currentScreen !== 'lesson' && 
     currentScreen !== 'shadowing' &&
     currentScreen !== 'quiz' &&
-    currentScreen !== 'listening';
+    currentScreen !== 'listening' &&
+    currentScreen !== 'todays-chunks' &&
+    currentScreen !== 'review' &&
+    currentScreen !== 'listen-type' &&
+    currentScreen !== 'fill-in-chunk' &&
+    currentScreen !== 'chunk-builder' &&
+    currentScreen !== 'meaning-match' &&
+    currentScreen !== 'translate-back' &&
+    currentScreen !== 'shadow-challenge' &&
+    currentScreen !== 'context-quiz' &&
+    currentScreen !== 'quick-review' &&
+    currentScreen !== 'time-attack' &&
+    currentScreen !== 'story-mode' &&
+    currentScreen !== 'ai-sentence-builder';
 
   return (
     <div className="min-h-screen">
@@ -87,6 +126,58 @@ export default function App() {
 
       {currentScreen === 'listening' && (
         <ListeningScreen onNavigate={handleNavigate} />
+      )}
+
+      {currentScreen === 'todays-chunks' && (
+        <TodaysChunksScreen onNavigate={handleNavigate} />
+      )}
+
+      {currentScreen === 'review' && (
+        <ReviewScreen onNavigate={handleNavigate} />
+      )}
+
+      {currentScreen === 'listen-type' && (
+        <ListenTypeScreen onNavigate={handleNavigate} />
+      )}
+
+      {currentScreen === 'fill-in-chunk' && (
+        <FillInChunkScreen onNavigate={handleNavigate} />
+      )}
+
+      {currentScreen === 'chunk-builder' && (
+        <ChunkBuilderScreen onNavigate={handleNavigate} />
+      )}
+
+      {currentScreen === 'meaning-match' && (
+        <MeaningMatchScreen onNavigate={handleNavigate} />
+      )}
+
+      {currentScreen === 'translate-back' && (
+        <TranslateBackScreen onNavigate={handleNavigate} />
+      )}
+
+      {currentScreen === 'shadow-challenge' && (
+        <ShadowChallengeScreen onNavigate={handleNavigate} />
+      )}
+
+      {currentScreen === 'context-quiz' && (
+        <ContextQuizScreen onNavigate={handleNavigate} />
+      )}
+
+      {currentScreen === 'quick-review' && (
+        <QuickReviewFlashcardsScreen onNavigate={handleNavigate} />
+      )}
+
+      {currentScreen === 'time-attack' && (
+        <TimeAttackScreen onNavigate={handleNavigate} />
+      )}
+
+      {currentScreen === 'story-mode' && (
+        <StoryModeScreen onNavigate={handleNavigate} />
+      )}
+
+      {currentScreen === 'ai-sentence-builder' && (
+        <AISentenceBuilderScreen onNavigate={handleNavigate} />
       )}
 
       {showBottomNav && (
