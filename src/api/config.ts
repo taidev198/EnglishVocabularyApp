@@ -42,6 +42,15 @@ const WHISPER_API_URL = getBaseURL(
   import.meta.env.VITE_WHISPER_API_URL
 );
 
+// Phoneme Backend URL - Python FastAPI backend
+// For mobile: Set VITE_PHONEME_API_URL to your computer's IP (e.g., http://192.168.1.100:8000)
+// For Android emulator: Use http://10.0.2.2:8000
+// For iOS simulator: Use http://localhost:8000 (works on simulator)
+const PHONEME_API_URL = getBaseURL(
+  'http://localhost:8001',
+  import.meta.env.VITE_PHONEME_API_URL
+);
+
 export const API_CONFIG = {
   baseURL: API_BASE_URL,
   vocabulary: {
@@ -54,6 +63,13 @@ export const API_CONFIG = {
   whisper: {
     analyzeAudio: `${WHISPER_API_URL}/api/analyze-audio`,
     forcedAlignment: `${WHISPER_API_URL}/api/forced-alignment`,
+  },
+  phoneme: {
+    upload: `${PHONEME_API_URL}/upload/`,
+    scoreDtw: `${PHONEME_API_URL}/score_dtw/`,
+    heatmap: `${PHONEME_API_URL}/heatmap/`,
+    align: `${PHONEME_API_URL}/align/`,
+    analyzeSentence: `${PHONEME_API_URL}/analyze_sentence/`,
   },
   timeout: 10000, // 10 seconds
 };

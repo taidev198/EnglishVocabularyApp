@@ -1,4 +1,4 @@
-import { ArrowLeft, Headphones, Type, Shuffle, Grid3x3, Languages, Mic, HelpCircle, BookOpen, Clock, Book, Sparkles } from 'lucide-react';
+import { ArrowLeft, Headphones, Type, Shuffle, Grid3x3, Languages, Mic, HelpCircle, BookOpen, Clock, Book, Sparkles, Beaker } from 'lucide-react';
 
 interface ReviewScreenProps {
   onNavigate: (screen: string) => void;
@@ -89,6 +89,13 @@ const activities: ReviewActivity[] = [
     icon: Sparkles,
     gradient: 'linear-gradient(to bottom right, #a78bfa, #9333ea)',
     description: 'AI-Assisted'
+  },
+  {
+    id: 'phoneme-backend-test',
+    name: 'Phoneme Test',
+    icon: Beaker,
+    gradient: 'linear-gradient(to bottom right, #06b6d4, #0891b2)',
+    description: 'Backend Testing'
   },
 ];
 

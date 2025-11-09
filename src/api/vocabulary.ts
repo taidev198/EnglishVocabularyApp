@@ -347,3 +347,280 @@ export const whisperApi = {
   },
 };
 
+// Phoneme Backend API - FastAPI backend for phoneme analysis
+export const phonemeApi = {
+  // Upload audio file
+  uploadAudio: async (audioFile: File): Promise<{ status: string; path: string }> => {
+    const formData = new FormData();
+    formData.append('file', audioFile);
+    
+    const url = API_CONFIG.phoneme.upload;
+    
+    console.log('Calling Phoneme API for upload:', url);
+    
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 30000);
+    
+    try {
+      const response = await fetch(url, {
+        method: 'POST',
+        body: formData,
+        headers: {
+          'Accept': 'application/json',
+        },
+        signal: controller.signal,
+      });
+
+      clearTimeout(timeoutId);
+
+      if (!response.ok) {
+        const error = await response.json().catch(() => ({ detail: response.statusText }));
+        throw new Error(error.detail || error.message || `HTTP error! status: ${response.status}`);
+      }
+
+      const result = await response.json();
+      console.log('Phoneme API upload response:', result);
+      return result;
+    } catch (error) {
+      clearTimeout(timeoutId);
+      if (error instanceof Error && error.name === 'AbortError') {
+        throw new Error('Upload request timeout');
+      }
+      if (error instanceof Error && error.message.includes('Failed to fetch')) {
+        throw new Error(`Failed to connect to Phoneme API at ${url}. Please ensure the Phoneme API server is running.`);
+      }
+      throw error;
+    }
+  },
+
+  // Score DTW (compare two audio files)
+  scoreDtw: async (userPath: string, nativePath: string): Promise<{ distance: number; score: number }> => {
+    const formData = new FormData();
+    formData.append('user_path', userPath);
+    formData.append('native_path', nativePath);
+    
+    const url = API_CONFIG.phoneme.scoreDtw;
+    
+    console.log('Calling Phoneme API for DTW scoring:', url);
+    
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 30000);
+    
+    try {
+      const response = await fetch(url, {
+        method: 'POST',
+        body: formData,
+        headers: {
+          'Accept': 'application/json',
+        },
+        signal: controller.signal,
+      });
+
+      clearTimeout(timeoutId);
+
+      if (!response.ok) {
+        const error = await response.json().catch(() => ({ detail: response.statusText }));
+        throw new Error(error.detail || error.message || error.error || `HTTP error! status: ${response.status}`);
+      }
+
+      const result = await response.json();
+      console.log('Phoneme API DTW score response:', result);
+      return result;
+    } catch (error) {
+      clearTimeout(timeoutId);
+      if (error instanceof Error && error.name === 'AbortError') {
+        throw new Error('DTW scoring request timeout');
+      }
+      if (error instanceof Error && error.message.includes('Failed to fetch')) {
+        throw new Error(`Failed to connect to Phoneme API at ${url}. Please ensure the Phoneme API server is running.`);
+      }
+      throw error;
+    }
+  },
+
+  // Generate heatmap
+  generateHeatmap: async (audioPath: string, textgridPath?: string): Promise<{ heatmap: string; intervals: any[]; scores: number[] }> => {
+    const formData = new FormData();
+    formData.append('audio_path', audioPath);
+    if (textgridPath) {
+      formData.append('textgrid_path', textgridPath);
+    }
+    
+    const url = API_CONFIG.phoneme.heatmap;
+    
+    console.log('Calling Phoneme API for heatmap:', url, { audioPath, textgridPath });
+    
+    const controller = new AbortController();
+    // Increase timeout to 60 seconds for heatmap generation (audio processing can be slow)
+    const timeoutId = setTimeout(() => controller.abort(), 60000);
+    
+    try {
+      const response = await fetch(url, {
+        method: 'POST',
+        body: formData,
+        headers: {
+          'Accept': 'application/json',
+        },
+        signal: controller.signal,
+      });
+
+      clearTimeout(timeoutId);
+
+      if (!response.ok) {
+        const errorText = await response.text();
+        let error;
+        try {
+          error = JSON.parse(errorText);
+        } catch {
+          error = { detail: errorText || response.statusText };
+        }
+        console.error('Phoneme API heatmap error:', error);
+        throw new Error(error.detail || error.message || error.error || `HTTP error! status: ${response.status}`);
+      }
+
+      const result = await response.json();
+      console.log('Phoneme API heatmap response:', result);
+      
+      // Check if the response contains an error
+      if (result.error) {
+        throw new Error(result.error + (result.detail ? `: ${result.detail}` : ''));
+      }
+      
+      return result;
+    } catch (error) {
+      clearTimeout(timeoutId);
+      if (error instanceof Error && error.name === 'AbortError') {
+        throw new Error('Heatmap generation request timeout (60s). The audio file may be too large or processing is taking too long.');
+      }
+      if (error instanceof Error && (error.message.includes('Failed to fetch') || error.message.includes('NetworkError'))) {
+        throw new Error(`Failed to connect to Phoneme API at ${url}. Please ensure the Phoneme API server is running on port 8001.`);
+      }
+      throw error;
+    }
+  },
+
+  // Align audio with transcript
+  align: async (audioPath: string, transcriptText?: string): Promise<{ method: string; intervals?: any[]; textgrid?: string; error?: string }> => {
+    const formData = new FormData();
+    formData.append('audio_path', audioPath);
+    if (transcriptText) {
+      formData.append('transcript_text', transcriptText);
+    }
+    
+    const url = API_CONFIG.phoneme.align;
+    
+    console.log('Calling Phoneme API for alignment:', url);
+    
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 60000);
+    
+    try {
+      const response = await fetch(url, {
+        method: 'POST',
+        body: formData,
+        headers: {
+          'Accept': 'application/json',
+        },
+        signal: controller.signal,
+      });
+
+      clearTimeout(timeoutId);
+
+      if (!response.ok) {
+        const error = await response.json().catch(() => ({ detail: response.statusText }));
+        throw new Error(error.detail || error.message || error.error || `HTTP error! status: ${response.status}`);
+      }
+
+      const result = await response.json();
+      console.log('Phoneme API alignment response:', result);
+      return result;
+    } catch (error) {
+      clearTimeout(timeoutId);
+      if (error instanceof Error && error.name === 'AbortError') {
+        throw new Error('Alignment request timeout');
+      }
+      if (error instanceof Error && error.message.includes('Failed to fetch')) {
+        throw new Error(`Failed to connect to Phoneme API at ${url}. Please ensure the Phoneme API server is running.`);
+      }
+      throw error;
+    }
+  },
+
+  // Analyze sentence - full pipeline
+  analyzeSentence: async (
+    audioFile: File,
+    sentence: string
+  ): Promise<{
+    sentence: string;
+    ipa: string;
+    overall_score: number;
+    words: Array<{
+      word: string;
+      start: number;
+      end: number;
+      score: number;
+      color: 'green' | 'red';
+      phonemes?: any[];
+    }>;
+    per_phoneme?: any[];
+    heatmap?: string;
+    error?: string;
+  }> => {
+    const formData = new FormData();
+    formData.append('file', audioFile);
+    formData.append('sentence', sentence);
+    
+    const url = API_CONFIG.phoneme.analyzeSentence;
+    
+    console.log('Calling Phoneme API for sentence analysis:', url);
+    
+    const controller = new AbortController();
+    // Increase timeout to 120 seconds for full pipeline (MFA + processing can be slow)
+    const timeoutId = setTimeout(() => controller.abort(), 120000);
+    
+    try {
+      const response = await fetch(url, {
+        method: 'POST',
+        body: formData,
+        headers: {
+          'Accept': 'application/json',
+        },
+        signal: controller.signal,
+      });
+
+      clearTimeout(timeoutId);
+
+      if (!response.ok) {
+        const errorText = await response.text();
+        let error;
+        try {
+          error = JSON.parse(errorText);
+        } catch {
+          error = { detail: errorText || response.statusText };
+        }
+        console.error('Phoneme API analyze sentence error:', error);
+        throw new Error(error.detail || error.message || error.error || `HTTP error! status: ${response.status}`);
+      }
+
+      const result = await response.json();
+      console.log('Phoneme API analyze sentence response:', result);
+      
+      // Check if the response contains an error
+      if (result.error) {
+        throw new Error(result.error + (result.detail ? `: ${result.detail}` : ''));
+      }
+      
+      return result;
+    } catch (error) {
+      clearTimeout(timeoutId);
+      if (error instanceof Error && error.name === 'AbortError') {
+        throw new Error('Sentence analysis request timeout (120s). The processing may be taking too long.');
+      }
+      if (error instanceof Error && (error.message.includes('Failed to fetch') || error.message.includes('NetworkError'))) {
+        throw new Error(`Failed to connect to Phoneme API at ${url}. Please ensure the Phoneme API server is running on port 8001.`);
+      }
+      throw error;
+    }
+  },
+};
+

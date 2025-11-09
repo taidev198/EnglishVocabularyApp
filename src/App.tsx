@@ -21,6 +21,7 @@ import { QuickReviewFlashcardsScreen } from './components/games/QuickReviewFlash
 import { TimeAttackScreen } from './components/games/TimeAttackScreen';
 import { StoryModeScreen } from './components/games/StoryModeScreen';
 import { AISentenceBuilderScreen } from './components/games/AISentenceBuilderScreen';
+import { PhonemeBackendTestScreen } from './components/games/PhonemeBackendTestScreen';
 import { BottomNav } from './components/BottomNav';
 
 type Screen = 
@@ -45,7 +46,8 @@ type Screen =
   | 'quick-review'
   | 'time-attack'
   | 'story-mode'
-  | 'ai-sentence-builder';
+  | 'ai-sentence-builder'
+  | 'phoneme-backend-test';
 
 export default function App() {
   const [currentScreen, setCurrentScreen] = useState<Screen>('onboarding');
@@ -88,7 +90,8 @@ export default function App() {
     currentScreen !== 'quick-review' &&
     currentScreen !== 'time-attack' &&
     currentScreen !== 'story-mode' &&
-    currentScreen !== 'ai-sentence-builder';
+    currentScreen !== 'ai-sentence-builder' &&
+    currentScreen !== 'phoneme-backend-test';
 
   return (
     <div className="min-h-screen">
@@ -178,6 +181,10 @@ export default function App() {
 
       {currentScreen === 'ai-sentence-builder' && (
         <AISentenceBuilderScreen onNavigate={handleNavigate} />
+      )}
+
+      {currentScreen === 'phoneme-backend-test' && (
+        <PhonemeBackendTestScreen onNavigate={handleNavigate} />
       )}
 
       {showBottomNav && (
